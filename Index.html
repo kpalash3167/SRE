@@ -1,0 +1,1558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Production Operations Command Center</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css">
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2128;
+    --surface3: #21262d;
+    --border: rgba(255,255,255,0.08);
+    --border-bright: rgba(255,255,255,0.15);
+    --text: #e6edf3;
+    --text-muted: #7d8590;
+    --text-dim: #4d5566;
+    --green: #3fb950;
+    --green-bg: rgba(63,185,80,0.12);
+    --yellow: #d29922;
+    --yellow-bg: rgba(210,153,34,0.12);
+    --red: #f85149;
+    --red-bg: rgba(248,81,73,0.12);
+    --blue: #58a6ff;
+    --blue-bg: rgba(88,166,255,0.12);
+    --purple: #bc8cff;
+    --purple-bg: rgba(188,140,255,0.12);
+    --orange: #e3b341;
+    --orange-bg: rgba(227,179,65,0.12);
+    --cyan: #39d0d8;
+    --radius: 8px;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'SF Mono', 'Fira Code', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; min-height: 100vh; }
+
+  /* Layout */
+  .shell { display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); position: fixed; top: 0; left: 0; height: 100vh; overflow-y: auto; z-index: 100; flex-shrink: 0; }
+  .main { margin-left: 220px; flex: 1; min-height: 100vh; }
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; height: 52px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+  .content { padding: 20px 24px; }
+
+  /* Sidebar */
+  .sidebar-header { padding: 16px; border-bottom: 1px solid var(--border); }
+  .sidebar-logo { font-size: 14px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .sidebar-logo .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .sidebar-nav { padding: 8px 0; }
+  .nav-section { padding: 4px 16px 2px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-top: 8px; }
+  .nav-item { display: flex; align-items: center; gap: 8px; padding: 7px 16px; color: var(--text-muted); cursor: pointer; border-left: 2px solid transparent; transition: all 0.15s; font-size: 12.5px; }
+  .nav-item:hover, .nav-item.active { color: var(--text); background: var(--surface3); border-left-color: var(--blue); }
+  .nav-item .badge { margin-left: auto; font-size: 10px; padding: 1px 6px; border-radius: 10px; font-weight: 600; }
+  .badge-red { background: var(--red-bg); color: var(--red); }
+  .badge-yellow { background: var(--yellow-bg); color: var(--yellow); }
+  .badge-green { background: var(--green-bg); color: var(--green); }
+  .badge-blue { background: var(--blue-bg); color: var(--blue); }
+
+  /* Topbar */
+  .topbar-left { display: flex; align-items: center; gap: 16px; }
+  .topbar-title { font-size: 14px; font-weight: 600; }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .system-health { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  .health-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .time-display { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+  .btn-sm { padding: 5px 12px; border-radius: var(--radius); border: 1px solid var(--border-bright); background: transparent; color: var(--text-muted); cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 5px; }
+  .btn-sm:hover { color: var(--text); border-color: var(--blue); }
+
+  /* Sections */
+  .section { margin-bottom: 28px; scroll-margin-top: 72px; }
+  .section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  .section-title { font-size: 14px; font-weight: 600; }
+  .section-sub { font-size: 11px; color: var(--text-muted); margin-left: auto; font-style: italic; }
+  .status-pill { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .pill-green { background: var(--green-bg); color: var(--green); }
+  .pill-yellow { background: var(--yellow-bg); color: var(--yellow); }
+  .pill-red { background: var(--red-bg); color: var(--red); }
+  .pill-blue { background: var(--blue-bg); color: var(--blue); }
+
+  /* Grid helpers */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .grid-6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+  .card-sm { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+
+  /* Metric cards */
+  .metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+  .metric-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+  .metric-value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+  .metric-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+  .trend-up { color: var(--red); }
+  .trend-down { color: var(--green); }
+  .trend-up-good { color: var(--green); }
+  .spark { height: 32px; margin-top: 8px; }
+
+  /* Status table */
+  .status-table { width: 100%; border-collapse: collapse; }
+  .status-table th { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+  .status-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 12px; }
+  .status-table tr:last-child td { border-bottom: none; }
+  .status-table tr:hover td { background: var(--surface2); }
+  .svc-name { font-weight: 500; font-size: 12.5px; }
+  .svc-tag { font-size: 10px; background: var(--surface3); padding: 1px 6px; border-radius: 4px; color: var(--text-muted); margin-left: 4px; }
+
+  /* Progress bars */
+  .progress-bar { height: 6px; border-radius: 3px; background: var(--surface3); overflow: hidden; margin-top: 6px; }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+  .fill-green { background: var(--green); }
+  .fill-yellow { background: var(--yellow); }
+  .fill-red { background: var(--red); }
+  .fill-blue { background: var(--blue); }
+
+  /* Alert / incident items */
+  .alert-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 6px; margin-bottom: 6px; border-left: 3px solid; }
+  .alert-critical { background: var(--red-bg); border-color: var(--red); }
+  .alert-warning { background: var(--yellow-bg); border-color: var(--yellow); }
+  .alert-info { background: var(--blue-bg); border-color: var(--blue); }
+  .alert-ok { background: var(--green-bg); border-color: var(--green); }
+  .alert-title { font-weight: 600; font-size: 12.5px; }
+  .alert-desc { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+  .alert-time { font-size: 11px; color: var(--text-dim); margin-left: auto; white-space: nowrap; font-family: var(--font-mono); }
+
+  /* Hygiene items */
+  .hygiene-item { display: flex; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); gap: 10px; }
+  .hygiene-item:last-child { border-bottom: none; }
+  .hygiene-icon { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .hygiene-label { font-size: 12px; font-weight: 500; }
+  .hygiene-status { font-size: 11px; color: var(--text-muted); }
+  .hygiene-badge { margin-left: auto; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 5px; white-space: nowrap; }
+
+  /* Dependency graph */
+  .dep-graph { background: var(--surface2); border-radius: var(--radius); padding: 16px; position: relative; }
+  .dep-node { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 6px; border: 1.5px solid; font-size: 12px; font-weight: 500; margin: 4px; }
+  .node-healthy { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+  .node-warn { background: var(--yellow-bg); border-color: var(--yellow); color: var(--yellow); }
+  .node-error { background: var(--red-bg); border-color: var(--red); color: var(--red); }
+  .node-neutral { background: var(--surface3); border-color: var(--border-bright); color: var(--text); }
+  .dep-row { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; margin: 6px 0; }
+  .dep-connector { color: var(--text-dim); font-size: 18px; margin: 0 4px; }
+
+  /* AI Chat */
+  .ai-chat { background: var(--surface2); border-radius: var(--radius); border: 1px solid var(--border); }
+  .ai-chat-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+  .ai-messages { padding: 12px 16px; min-height: 160px; max-height: 260px; overflow-y: auto; }
+  .ai-msg { margin-bottom: 10px; }
+  .ai-msg-user { text-align: right; }
+  .ai-bubble { display: inline-block; padding: 8px 12px; border-radius: 10px; font-size: 12.5px; max-width: 85%; text-align: left; line-height: 1.5; }
+  .bubble-user { background: var(--blue); color: #fff; }
+  .bubble-ai { background: var(--surface3); color: var(--text); }
+  .ai-typing { color: var(--text-muted); font-size: 11px; font-style: italic; padding: 0 4px; }
+  .ai-input-row { display: flex; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--border); }
+  .ai-input { flex: 1; background: var(--surface3); border: 1px solid var(--border); border-radius: 6px; padding: 7px 12px; color: var(--text); font-size: 12.5px; font-family: var(--font); outline: none; }
+  .ai-input:focus { border-color: var(--blue); }
+  .ai-send { padding: 7px 14px; background: var(--blue); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+  .ai-send:hover { opacity: 0.9; }
+
+  /* Predictive */
+  .pred-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .pred-item:last-child { border-bottom: none; }
+  .pred-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .pred-label { font-weight: 500; font-size: 12.5px; }
+  .pred-detail { font-size: 11.5px; color: var(--text-muted); }
+  .pred-days { margin-left: auto; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  /* Incident table */
+  .incident-row td:first-child { font-weight: 600; }
+  .sev-p1 { color: var(--red); font-weight: 700; }
+  .sev-p2 { color: var(--orange); font-weight: 700; }
+  .sev-p3 { color: var(--yellow); font-weight: 700; }
+  .sev-p4 { color: var(--blue); font-weight: 700; }
+
+  /* Chart wrappers */
+  .chart-wrap { position: relative; width: 100%; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .grid-4 { grid-template-columns: 1fr 1fr; }
+    .grid-6 { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; }
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  }
+
+  /* Refresh animation */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinning { animation: spin 1s linear infinite; }
+
+  /* Live pulse */
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .live-pulse { animation: pulse 2s infinite; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">
+      <span class="dot"></span>
+      OPS CENTER
+    </div>
+    <div style="font-size:10px; color:var(--text-dim); margin-top:4px;">100K DAU · 20 Services</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <div class="nav-item active" onclick="scrollTo('summary')"><i class="ti ti-layout-dashboard"></i> Summary</div>
+    <div class="nav-item" onclick="scrollTo('incidents')"><i class="ti ti-alert-triangle"></i> Incidents <span class="badge badge-red">3</span></div>
+    <div class="nav-item" onclick="scrollTo('predictive')"><i class="ti ti-brain"></i> Predictive <span class="badge badge-yellow">5</span></div>
+
+    <div class="nav-section">Infrastructure</div>
+    <div class="nav-item" onclick="scrollTo('infra')"><i class="ti ti-server"></i> Infrastructure</div>
+    <div class="nav-item" onclick="scrollTo('k8s')"><i class="ti ti-box-multiple"></i> Kubernetes</div>
+
+    <div class="nav-section">Application</div>
+    <div class="nav-item" onclick="scrollTo('app')"><i class="ti ti-api"></i> App Health</div>
+    <div class="nav-item" onclick="scrollTo('services')"><i class="ti ti-topology-star"></i> Services</div>
+    <div class="nav-item" onclick="scrollTo('dep-graph')"><i class="ti ti-sitemap"></i> Dependency Graph</div>
+
+    <div class="nav-section">Data Layer</div>
+    <div class="nav-item" onclick="scrollTo('database')"><i class="ti ti-database"></i> PostgreSQL</div>
+    <div class="nav-item" onclick="scrollTo('cache')"><i class="ti ti-bolt"></i> Redis Cache</div>
+    <div class="nav-item" onclick="scrollTo('kafka')"><i class="ti ti-messages"></i> Kafka</div>
+
+    <div class="nav-section">External</div>
+    <div class="nav-item" onclick="scrollTo('external')"><i class="ti ti-plug"></i> Dependencies <span class="badge badge-yellow">1</span></div>
+    <div class="nav-item" onclick="scrollTo('cdn')"><i class="ti ti-cloud"></i> CDN &amp; Network</div>
+
+    <div class="nav-section">Security</div>
+    <div class="nav-item" onclick="scrollTo('security')"><i class="ti ti-shield-lock"></i> Security <span class="badge badge-red">2</span></div>
+    <div class="nav-item" onclick="scrollTo('hygiene')"><i class="ti ti-checklist"></i> Ops Hygiene <span class="badge badge-red">4</span></div>
+
+    <div class="nav-section">Business</div>
+    <div class="nav-item" onclick="scrollTo('cost')"><i class="ti ti-coin"></i> Cost</div>
+    <div class="nav-item" onclick="scrollTo('reliability')"><i class="ti ti-chart-line"></i> Reliability</div>
+    <div class="nav-item" onclick="scrollTo('ai-ops')"><i class="ti ti-robot"></i> AI Ops Assistant</div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-title">Production Operations Command Center</div>
+      <span class="status-pill pill-yellow">⚠ DEGRADED</span>
+    </div>
+    <div class="topbar-right">
+      <div class="system-health">
+        <span class="health-dot live-pulse" style="background:var(--green)"></span>
+        <span style="font-size:11px; color:var(--text-muted)">Live</span>
+      </div>
+      <div class="time-display" id="clock">--:--:-- UTC</div>
+      <button class="btn-sm" onclick="refreshAll()"><i class="ti ti-refresh" id="refresh-icon"></i> Refresh</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SECTION: SUMMARY / COMMAND OVERVIEW -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section" id="summary">
+    <div class="section-header">
+      <i class="ti ti-layout-dashboard" style="color:var(--blue)"></i>
+      <div class="section-title">System Overview</div>
+      <div class="section-sub">Last updated: just now · Auto-refresh: 30s</div>
+    </div>
+
+    <div class="grid-6" style="margin-bottom:14px">
+      <div class="metric-card">
+        <div class="metric-label">Overall Health</div>
+        <div class="metric-value" style="color:var(--yellow)">87%</div>
+        <div class="metric-sub"><i class="ti ti-trending-down trend-up"></i> -3% from 1h ago</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Active Users</div>
+        <div class="metric-value" style="color:var(--text)">84,291</div>
+        <div class="metric-sub"><i class="ti ti-trending-up trend-up-good"></i> Peak in 2h</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Req / Second</div>
+        <div class="metric-value" style="color:var(--text)">4,812</div>
+        <div class="metric-sub"><i class="ti ti-trending-up trend-up-good"></i> Normal range</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Error Rate</div>
+        <div class="metric-value" style="color:var(--yellow)">0.84%</div>
+        <div class="metric-sub"><i class="ti ti-trending-up trend-up"></i> SLO: &lt;0.5%</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">P99 Latency</div>
+        <div class="metric-value" style="color:var(--yellow)">312ms</div>
+        <div class="metric-sub"><i class="ti ti-trending-up trend-up"></i> Threshold: 300ms</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Open Incidents</div>
+        <div class="metric-value" style="color:var(--red)">3</div>
+        <div class="metric-sub"><span style="color:var(--red)">1 P1 · 1 P2 · 1 P3</span></div>
+      </div>
+    </div>
+
+    <!-- Quick status bar -->
+    <div class="card" style="display:flex; gap:0; overflow:hidden; padding:0; margin-bottom:14px;">
+      <div style="flex:1; padding:10px 16px; border-right:1px solid var(--border); text-align:center;">
+        <div style="font-size:10px; color:var(--text-muted); margin-bottom:2px;">KUBERNETES</div>
+        <div style="font-size:12px; font-weight:600; color:var(--green)"><i class="ti ti-check"></i> 18/20 Nodes</div>
+      </div>
+      <div style="flex:1; padding:10px 16px; border-right:1px solid var(--border); text-align:center;">
+        <div style="font-size:10px; color:var(--text-muted); margin-bottom:2px;">POSTGRESQL</div>
+        <div style="font-size:12px; font-weight:600; color:var(--green)"><i class="ti ti-check"></i> Primary OK</div>
+      </div>
+      <div style="flex:1; padding:10px 16px; border-right:1px solid var(--border); text-align:center;">
+        <div style="font-size:10px; color:var(--text-muted); margin-bottom:2px;">REDIS</div>
+        <div style="font-size:12px; font-weight:600; color:var(--yellow)"><i class="ti ti-alert-triangle"></i> High Mem</div>
+      </div>
+      <div style="flex:1; padding:10px 16px; border-right:1px solid var(--border); text-align:center;">
+        <div style="font-size:10px; color:var(--text-muted); margin-bottom:2px;">KAFKA</div>
+        <div style="font-size:12px; font-weight:600; color:var(--green)"><i class="ti ti-check"></i> Healthy</div>
+      </div>
+      <div style="flex:1; padding:10px 16px; border-right:1px solid var(--border); text-align:center;">
+        <div style="font-size:10px; color:var(--text-muted); margin-bottom:2px;">PAYMENT GW</div>
+        <div style="font-size:12px; font-weight:600; color:var(--yellow)"><i class="ti ti-alert-triangle"></i> Degraded</div>
+      </div>
+      <div style="flex:1; padding:10px 16px; border-right:1px solid var(--border); text-align:center;">
+        <div style="font-size:10px; color:var(--text-muted); margin-bottom:2px;">CDN</div>
+        <div style="font-size:12px; font-weight:600; color:var(--green)"><i class="ti ti-check"></i> Operational</div>
+      </div>
+      <div style="flex:1; padding:10px 16px; text-align:center;">
+        <div style="font-size:10px; color:var(--text-muted); margin-bottom:2px;">UPTIME</div>
+        <div style="font-size:12px; font-weight:600; color:var(--green)">99.94%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SECTION 11: INCIDENT CENTER (moved up, P1 first) -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section" id="incidents">
+    <div class="section-header">
+      <i class="ti ti-alert-triangle" style="color:var(--red)"></i>
+      <div class="section-title">Incident Center</div>
+      <span class="status-pill pill-red">3 OPEN</span>
+      <div class="section-sub">Question: Is this being handled?</div>
+    </div>
+    <div class="card">
+      <table class="status-table incident-row">
+        <thead>
+          <tr>
+            <th>ID</th><th>Severity</th><th>Title</th><th>Component</th><th>Owner</th><th>Escalated</th><th>Opened</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-family:var(--font-mono); font-size:11px">INC-1042</td>
+            <td><span class="sev-p1">P1</span></td>
+            <td class="svc-name">Payment Gateway degraded — checkout failures rising</td>
+            <td><span class="svc-tag">payments</span></td>
+            <td>@ravi.k</td>
+            <td><span style="color:var(--red)">Yes → VP Eng</span></td>
+            <td style="font-family:var(--font-mono); color:var(--text-muted)">47m ago</td>
+            <td><span class="status-pill pill-red">Investigating</span></td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--font-mono); font-size:11px">INC-1041</td>
+            <td><span class="sev-p2">P2</span></td>
+            <td class="svc-name">Redis memory utilisation at 89% — evictions started</td>
+            <td><span class="svc-tag">cache</span></td>
+            <td>@priya.s</td>
+            <td>No</td>
+            <td style="font-family:var(--font-mono); color:var(--text-muted)">2h 10m ago</td>
+            <td><span class="status-pill pill-yellow">Mitigating</span></td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--font-mono); font-size:11px">INC-1040</td>
+            <td><span class="sev-p3">P3</span></td>
+            <td class="svc-name">SSL cert expiry in 12 days — auto-renewal failing</td>
+            <td><span class="svc-tag">ssl</span></td>
+            <td>@devops-oncall</td>
+            <td>No</td>
+            <td style="font-family:var(--font-mono); color:var(--text-muted)">5h 33m ago</td>
+            <td><span class="status-pill pill-blue">Scheduled</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SECTION 12: PREDICTIVE MONITORING -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section" id="predictive">
+    <div class="section-header">
+      <i class="ti ti-brain" style="color:var(--purple)"></i>
+      <div class="section-title">Predictive Monitoring</div>
+      <span class="status-pill pill-yellow">5 ALERTS</span>
+      <div class="section-sub">Forecast horizon: 30 days · What breaks tomorrow?</div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="pred-item">
+          <div class="pred-icon" style="background:var(--red-bg)"><i class="ti ti-database" style="color:var(--red)"></i></div>
+          <div>
+            <div class="pred-label">Disk full — primary DB node</div>
+            <div class="pred-detail">Growth rate: +4.2 GB/day · Current: 87% used</div>
+          </div>
+          <div class="pred-days" style="color:var(--red)">9d</div>
+        </div>
+        <div class="pred-item">
+          <div class="pred-icon" style="background:var(--red-bg)"><i class="ti ti-lock" style="color:var(--red)"></i></div>
+          <div>
+            <div class="pred-label">SSL certificate expires</div>
+            <div class="pred-detail">example.com · Auto-renewal is failing</div>
+          </div>
+          <div class="pred-days" style="color:var(--red)">12d</div>
+        </div>
+        <div class="pred-item">
+          <div class="pred-icon" style="background:var(--yellow-bg)"><i class="ti ti-certificate" style="color:var(--yellow)"></i></div>
+          <div>
+            <div class="pred-label">Vendor VPN access expires</div>
+            <div class="pred-detail">3rd-party support team access</div>
+          </div>
+          <div class="pred-days" style="color:var(--yellow)">5d</div>
+        </div>
+        <div class="pred-item">
+          <div class="pred-icon" style="background:var(--yellow-bg)"><i class="ti ti-coin" style="color:var(--yellow)"></i></div>
+          <div>
+            <div class="pred-label">Cloud spend projected over budget</div>
+            <div class="pred-detail">+38% vs plan · Compute costs surging</div>
+          </div>
+          <div class="pred-days" style="color:var(--yellow)">~EOM</div>
+        </div>
+        <div class="pred-item" style="border-bottom:none">
+          <div class="pred-icon" style="background:var(--yellow-bg)"><i class="ti ti-link" style="color:var(--yellow)"></i></div>
+          <div>
+            <div class="pred-label">DB connections trending upward</div>
+            <div class="pred-detail">Current: 430/500 · +8 conn/hr trend</div>
+          </div>
+          <div class="pred-days" style="color:var(--yellow)">~48h</div>
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">30-day disk forecast — primary DB</div>
+        <div class="chart-wrap" style="height:200px">
+          <canvas id="diskForecastChart" role="img" aria-label="Disk usage forecast showing full in 9 days"></canvas>
+        </div>
+        <div style="font-size:11px; color:var(--text-muted); margin-top:12px; margin-bottom:10px;">DB connection trend</div>
+        <div class="chart-wrap" style="height:130px">
+          <canvas id="dbConnTrendChart" role="img" aria-label="DB connections trending upward over 24h"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SECTION 1: INFRASTRUCTURE HEALTH -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section" id="infra">
+    <div class="section-header">
+      <i class="ti ti-server" style="color:var(--blue)"></i>
+      <div class="section-title">Infrastructure Health</div>
+      <span class="status-pill pill-green">HEALTHY</span>
+      <div class="section-sub">Will a server die soon? Will we run out of capacity?</div>
+    </div>
+
+    <div class="grid-4" style="margin-bottom:14px">
+      <div class="metric-card">
+        <div class="metric-label">Avg CPU</div>
+        <div class="metric-value" style="color:var(--yellow)">68%</div>
+        <div class="progress-bar"><div class="progress-fill fill-yellow" style="width:68%"></div></div>
+        <div class="metric-sub">Threshold: 75% · <span style="color:var(--yellow)">Warn</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Avg Memory</div>
+        <div class="metric-value" style="color:var(--yellow)">74%</div>
+        <div class="progress-bar"><div class="progress-fill fill-yellow" style="width:74%"></div></div>
+        <div class="metric-sub">Threshold: 80% · <span style="color:var(--yellow)">Warn</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Disk Usage</div>
+        <div class="metric-value" style="color:var(--green)">61%</div>
+        <div class="progress-bar"><div class="progress-fill fill-green" style="width:61%"></div></div>
+        <div class="metric-sub">Threshold: 85% · <span style="color:var(--green)">OK</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Network In/Out</div>
+        <div class="metric-value">4.2<span style="font-size:13px; font-weight:400; color:var(--text-muted)"> Gbps</span></div>
+        <div class="metric-sub"><i class="ti ti-arrow-down trend-up-good"></i> 1.8 in · <i class="ti ti-arrow-up"></i> 2.4 out</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">CPU utilization per node cluster (24h)</div>
+        <div class="chart-wrap" style="height:160px">
+          <canvas id="cpuChart" role="img" aria-label="CPU utilization across node clusters over 24 hours"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">Node health overview</div>
+        <table class="status-table">
+          <thead><tr><th>Node Group</th><th>Nodes</th><th>CPU</th><th>Mem</th><th>Disk IOPS</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td class="svc-name">api-pool</td><td>6/6</td><td>72%</td><td>81%</td><td>4,200</td><td><span class="status-pill pill-yellow">WARN</span></td></tr>
+            <tr><td class="svc-name">worker-pool</td><td>4/4</td><td>58%</td><td>64%</td><td>2,100</td><td><span class="status-pill pill-green">OK</span></td></tr>
+            <tr><td class="svc-name">db-pool</td><td>3/3</td><td>71%</td><td>78%</td><td>8,900</td><td><span class="status-pill pill-yellow">WARN</span></td></tr>
+            <tr><td class="svc-name">cache-pool</td><td>2/2</td><td>34%</td><td>89%</td><td>1,400</td><td><span class="status-pill pill-yellow">WARN</span></td></tr>
+            <tr><td class="svc-name">kafka-pool</td><td>3/3</td><td>48%</td><td>52%</td><td>6,200</td><td><span class="status-pill pill-green">OK</span></td></tr>
+            <tr><td class="svc-name">misc-pool</td><td>2/2</td><td>22%</td><td>38%</td><td>980</td><td><span class="status-pill pill-green">OK</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid-4" style="margin-top:12px">
+      <div class="card-sm">
+        <div style="font-size:10px; color:var(--text-muted)">DISK LATENCY</div>
+        <div style="font-size:18px; font-weight:700; margin:4px 0; color:var(--green)">2.1ms</div>
+        <div style="font-size:11px; color:var(--text-muted)">Threshold: &lt;10ms · OK</div>
+      </div>
+      <div class="card-sm">
+        <div style="font-size:10px; color:var(--text-muted)">NETWORK ERRORS</div>
+        <div style="font-size:18px; font-weight:700; margin:4px 0; color:var(--green)">0.002%</div>
+        <div style="font-size:11px; color:var(--text-muted)">Threshold: &lt;0.1% · OK</div>
+      </div>
+      <div class="card-sm">
+        <div style="font-size:10px; color:var(--text-muted)">LOAD AVERAGE</div>
+        <div style="font-size:18px; font-weight:700; margin:4px 0; color:var(--yellow)">3.8</div>
+        <div style="font-size:11px; color:var(--text-muted)">1-min · Threshold: 4.0</div>
+      </div>
+      <div class="card-sm">
+        <div style="font-size:10px; color:var(--text-muted)">CONTAINER RESTARTS</div>
+        <div style="font-size:18px; font-weight:700; margin:4px 0; color:var(--yellow)">7</div>
+        <div style="font-size:11px; color:var(--text-muted)">Last 1h · Threshold: &lt;5</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SECTION: KUBERNETES -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section" id="k8s">
+    <div class="section-header">
+      <i class="ti ti-box-multiple" style="color:var(--blue)"></i>
+      <div class="section-title">Kubernetes</div>
+      <span class="status-pill pill-yellow">WARN</span>
+    </div>
+    <div class="grid-4" style="margin-bottom:12px">
+      <div class="metric-card">
+        <div class="metric-label">Nodes Ready</div>
+        <div class="metric-value" style="color:var(--green)">18 <span style="font-size:14px; color:var(--text-muted)">/ 20</span></div>
+        <div class="metric-sub"><span style="color:var(--red)">2 NotReady</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Pods Running</div>
+        <div class="metric-value" style="color:var(--green)">287 <span style="font-size:14px; color:var(--text-muted)">/ 294</span></div>
+        <div class="metric-sub"><span style="color:var(--yellow)">4 Pending · 3 CrashLoop</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">HPA Scale Events</div>
+        <div class="metric-value">12</div>
+        <div class="metric-sub">Last 6h · 8 up, 4 down</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">K8s Version</div>
+        <div class="metric-value" style="font-size:16px; color:var(--red)">1.26</div>
+        <div class="metric-sub"><span style="color:var(--red)">⚠ EOL — upgrade required</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <table class="status-table">
+        <thead><tr><th>Namespace</th><th>Pods Running</th><th>Pods Pending</th><th>CrashLoop</th><th>CPU Req</th><th>Mem Req</th><th>HPA</th><th>Health</th></tr></thead>
+        <tbody>
+          <tr><td class="svc-name">api</td><td>48/50</td><td>2</td><td>0</td><td>82%</td><td>76%</td><td>45/50</td><td><span class="status-pill pill-yellow">WARN</span></td></tr>
+          <tr><td class="svc-name">payments</td><td>12/12</td><td>0</td><td>2</td><td>91%</td><td>88%</td><td>12/15</td><td><span class="status-pill pill-red">CRIT</span></td></tr>
+          <tr><td class="svc-name">auth</td><td>8/8</td><td>0</td><td>0</td><td>44%</td><td>51%</td><td>8/10</td><td><span class="status-pill pill-green">OK</span></td></tr>
+          <tr><td class="svc-name">orders</td><td>16/16</td><td>0</td><td>1</td><td>67%</td><td>72%</td><td>14/16</td><td><span class="status-pill pill-yellow">WARN</span></td></tr>
+          <tr><td class="svc-name">inventory</td><td>10/10</td><td>0</td><td>0</td><td>38%</td><td>44%</td><td>10/10</td><td><span class="status-pill pill-green">OK</span></td></tr>
+          <tr><td class="svc-name">notifications</td><td>6/8</td><td>2</td><td>0</td><td>29%</td><td>31%</td><td>6/8</td><td><span class="status-pill pill-yellow">WARN</span></td></tr>
+          <tr><td class="svc-name">analytics</td><td>14/14</td><td>0</td><td>0</td><td>55%</td><td>60%</td><td>12/14</td><td><span class="status-pill pill-green">OK</span></td></tr>
+          <tr><td class="svc-name">search</td><td>12/12</td><td>0</td><td>0</td><td>62%</td><td>58%</td><td>10/12</td><td><span class="status-pill pill-green">OK</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SECTION 2: APPLICATION HEALTH -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section" id="app">
+    <div class="section-header">
+      <i class="ti ti-api" style="color:var(--cyan)"></i>
+      <div class="section-title">Application Health</div>
+      <span class="status-pill pill-yellow">DEGRADED</span>
+      <div class="section-sub">Are users able to use the application?</div>
+    </div>
+    <div class="grid-4" style="margin-bottom:14px">
+      <div class="metric-card">
+        <div class="metric-label">P50 Latency</div>
+        <div class="metric-value" style="color:var(--green)">48ms</div>
+        <div class="metric-sub">Threshold: &lt;100ms · <span style="color:var(--green)">OK</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">P95 Latency</div>
+        <div class="metric-value" style="color:var(--yellow)">184ms</div>
+        <div class="metric-sub">Threshold: &lt;200ms · <span style="color:var(--yellow)">Warn</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">P99 Latency</div>
+        <div class="metric-value" style="color:var(--yellow)">312ms</div>
+        <div class="metric-sub">Threshold: &lt;300ms · <span style="color:var(--red)">Breach</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">API Success %</div>
+        <div class="metric-value" style="color:var(--yellow)">99.16%</div>
+        <div class="metric-sub">SLO: 99.5% · <span style="color:var(--red)">Below SLO</span></div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">Latency percentiles (last 24h)</div>
+        <div class="chart-wrap" style="height:180px">
+          <canvas id="latencyChart" role="img" aria-label="P50 P95 P99 latency trend over 24 hours"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">HTTP status distribution (last 1h)</div>
+        <div class="chart-wrap" style="height:180px">
+          <canvas id="httpStatusChart" role="img" aria-label="HTTP 2xx 4xx 5xx distribution"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px; font-weight:600">Slow endpoints (P99 &gt; 500ms)</div>
+      <table class="status-table">
+        <thead><tr><th>Endpoint</th><th>Method</th><th>P50</th><th>P95</th><th>P99</th><th>RPS</th><th>Error %</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td class="svc-name">/api/v2/checkout</td><td>POST</td><td>220ms</td><td>890ms</td><td><span style="color:var(--red)">2,100ms</span></td><td>142</td><td style="color:var(--red)">4.2%</td><td><span class="status-pill pill-red">CRIT</span></td></tr>
+          <tr><td class="svc-name">/api/v1/search</td><td>GET</td><td>110ms</td><td>480ms</td><td><span style="color:var(--yellow)">820ms</span></td><td>380</td><td style="color:var(--yellow)">0.8%</td><td><span class="status-pill pill-yellow">WARN</span></td></tr>
+          <tr><td class="svc-name">/api/v1/recommendations</td><td>GET</td><td>95ms</td><td>410ms</td><td><span style="color:var(--yellow)">680ms</span></td><td>210</td><td>0.1%</td><td><span class="status-pill pill-yellow">WARN</span></td></tr>
+          <tr><td class="svc-name">/api/v1/orders/history</td><td>GET</td><td>88ms</td><td>340ms</td><td>540ms</td><td>88</td><td>0.05%</td><td><span class="status-pill pill-yellow">WARN</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SECTION: SERVICES -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section" id="services">
+    <div class="section-header">
+      <i class="ti ti-topology-star" style="color:var(--blue)"></i>
+      <div class="section-title">Microservices Status (20 services)</div>
+      <span class="status-pill pill-yellow">2 DEGRADED</span>
+    </div>
+    <div class="card">
+      <table class="status-table">
+        <thead><tr><th>Service</th><th>RPS</th><th>P99</th><th>Error %</th><th>Pods</th><th>Dep Failures</th><th>Health</th></tr></thead>
+        <tbody id="services-tbody">
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SECTION: DEPENDENCY GRAPH -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section" id="dep-graph">
+    <div class="section-header">
+      <i class="ti ti-sitemap" style="color:var(--purple)"></i>
+      <div class="section-title">Service Dependency Graph</div>
+      <div class="section-sub">Failures propagate downward</div>
+    </div>
+    <div class="dep-graph">
+      <div style="text-align:center; margin-bottom:8px; font-size:11px; color:var(--text-muted)">User Traffic</div>
+      <div class="dep-row">
+        <span class="dep-node node-healthy"><i class="ti ti-device-mobile"></i> Mobile App</span>
+        <span class="dep-node node-healthy"><i class="ti ti-browser"></i> Web App</span>
+      </div>
+      <div class="dep-row"><span class="dep-connector">↓</span></div>
+      <div class="dep-row">
+        <span class="dep-node node-healthy"><i class="ti ti-cloud"></i> CDN / Edge</span>
+      </div>
+      <div class="dep-row"><span class="dep-connector">↓</span></div>
+      <div class="dep-row">
+        <span class="dep-node node-healthy"><i class="ti ti-router"></i> API Gateway</span>
+      </div>
+      <div class="dep-row"><span class="dep-connector">↓</span></div>
+      <div class="dep-row">
+        <span class="dep-node node-healthy"><i class="ti ti-shield"></i> Auth Service</span>
+        <span class="dep-node node-healthy"><i class="ti ti-shopping-cart"></i> Order Service</span>
+        <span class="dep-node node-warn"><i class="ti ti-credit-card"></i> Payment Service</span>
+        <span class="dep-node node-healthy"><i class="ti ti-search"></i> Search Service</span>
+        <span class="dep-node node-healthy"><i class="ti ti-bell"></i> Notification Svc</span>
+      </div>
+      <div class="dep-row"><span class="dep-connector">↓</span></div>
+      <div class="dep-row">
+        <span class="dep-node node-healthy"><i class="ti ti-database"></i> PostgreSQL</span>
+        <span class="dep-node node-warn"><i class="ti ti-bolt"></i> Redis</span>
+        <span class="dep-node node-healthy"><i class="ti ti-messages"></i> Kafka</span>
+        <span class="dep-node node-error"><i class="ti ti-plug"></i> Payment GW</span>
+      </div>
+      <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border); display:flex; gap:12px; flex-wrap:wrap">
+        <span style="display:flex; align-items:center; gap:4px; font-size:11px; color:var(--text-muted)"><span style="width:8px;height:8px;border-radius:50%;background:var(--green); display:inline-block"></span>Healthy</span>
+        <span style="display:flex; align-items:center; gap:4px; font-size:11px; color:var(--text-muted)"><span style="width:8px;height:8px;border-radius:50%;background:var(--yellow); display:inline-block"></span>Degraded</span>
+        <span style="display:flex; align-items:center; gap:4px; font-size:11px; color:var(--text-muted)"><span style="width:8px;height:8px;border-radius:50%;background:var(--red); display:inline-block"></span>Critical / Failing</span>
+        <span style="margin-left:auto; font-size:11px; color:var(--text-muted); font-style:italic">Root cause: Payment GW outage → Payment Service degraded → /checkout P99 spike</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SECTION 3: DATABASE HEALTH -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section" id="database">
+    <div class="section-header">
+      <i class="ti ti-database" style="color:var(--orange)"></i>
+      <div class="section-title">Database Health — PostgreSQL</div>
+      <span class="status-pill pill-yellow">WARN</span>
+      <div class="section-sub">Can the database survive the next week?</div>
+    </div>
+    <div class="grid-4" style="margin-bottom:14px">
+      <div class="metric-card">
+        <div class="metric-label">Availability</div>
+        <div class="metric-value" style="color:var(--green)">100%</div>
+        <div class="metric-sub">Primary + 2 replicas online</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Connections</div>
+        <div class="metric-value" style="color:var(--yellow)">430<span style="font-size:13px; color:var(--text-muted)">/500</span></div>
+        <div class="progress-bar"><div class="progress-fill fill-yellow" style="width:86%"></div></div>
+        <div class="metric-sub">Threshold: &lt;400 · <span style="color:var(--red)">Critical</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Replication Lag</div>
+        <div class="metric-value" style="color:var(--green)">0.8s</div>
+        <div class="metric-sub">Threshold: &lt;5s · <span style="color:var(--green)">OK</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Backup Age</div>
+        <div class="metric-value" style="color:var(--green)">4.2h</div>
+        <div class="metric-sub">Last restore test: <span style="color:var(--red)">90 days ago</span></div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <table class="status-table">
+          <thead><tr><th>Metric</th><th>Value</th><th>Threshold</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>Active Queries</td><td>48</td><td>&lt;100</td><td><span class="status-pill pill-green">OK</span></td></tr>
+            <tr><td>Slow Queries (&gt;1s)</td><td>12/hr</td><td>&lt;10/hr</td><td><span class="status-pill pill-yellow">WARN</span></td></tr>
+            <tr><td>Query Latency P99</td><td>420ms</td><td>&lt;500ms</td><td><span class="status-pill pill-yellow">WARN</span></td></tr>
+            <tr><td>Deadlocks (1h)</td><td>0</td><td>&lt;5</td><td><span class="status-pill pill-green">OK</span></td></tr>
+            <tr><td>Lock Waits (1h)</td><td>8</td><td>&lt;20</td><td><span class="status-pill pill-green">OK</span></td></tr>
+            <tr><td>Storage Used</td><td>1.74 TB</td><td>&lt;2 TB</td><td><span class="status-pill pill-red">CRIT</span></td></tr>
+            <tr><td>Storage Growth</td><td>+4.2 GB/day</td><td>+3 GB/day</td><td><span class="status-pill pill-red">CRIT</span></td></tr>
+            <tr><td>Backup Status</td><td>Success</td><td>Daily</td><td><span class="status-pill pill-green">OK</span></td></tr>
+            <tr><td>Restore Test</td><td>90 days ago</td><td>&lt;30 days</td><td><span class="status-pill pill-red">OVERDUE</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">DB connections (24h)</div>
+        <div class="chart-wrap" style="height:180px">
+          <canvas id="dbChart" role="img" aria-label="Database connections over 24 hours"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SECTION 4: CACHE (REDIS) -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section" id="cache">
+    <div class="section-header">
+      <i class="ti ti-bolt" style="color:var(--yellow)"></i>
+      <div class="section-title">Cache Layer — Redis</div>
+      <span class="status-pill pill-yellow">HIGH MEMORY</span>
+      <div class="section-sub">Will Redis become the bottleneck?</div>
+    </div>
+    <div class="grid-4" style="margin-bottom:14px">
+      <div class="metric-card">
+        <div class="metric-label">Availability</div>
+        <div class="metric-value" style="color:var(--green)">100%</div>
+        <div class="metric-sub">Primary + 1 replica</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Memory Usage</div>
+        <div class="metric-value" style="color:var(--red)">89%</div>
+        <div class="progress-bar"><div class="progress-fill fill-red" style="width:89%"></div></div>
+        <div class="metric-sub">28.5 / 32 GB · <span style="color:var(--red)">Critical</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Hit Ratio</div>
+        <div class="metric-value" style="color:var(--yellow)">87.3%</div>
+        <div class="metric-sub">Threshold: &gt;90% · <span style="color:var(--yellow)">Below target</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Eviction Rate</div>
+        <div class="metric-value" style="color:var(--red)">2,400<span style="font-size:12px">/min</span></div>
+        <div class="metric-sub">Threshold: &lt;100 · <span style="color:var(--red)">ALERT</span></div>
+      </div>
+    </div>
+    <div class="grid-3">
+      <div class="card-sm">
+        <div style="font-size:10px; color:var(--text-muted)">CONNECTIONS</div>
+        <div style="font-size:18px; font-weight:700; margin:4px 0; color:var(--green)">1,240</div>
+        <div style="font-size:11px; color:var(--text-muted)">Max: 10,000 · OK</div>
+      </div>
+      <div class="card-sm">
+        <div style="font-size:10px; color:var(--text-muted)">REPLICATION LAG</div>
+        <div style="font-size:18px; font-weight:700; margin:4px 0; color:var(--green)">0ms</div>
+        <div style="font-size:11px; color:var(--text-muted)">Replica in sync · OK</div>
+      </div>
+      <div class="card-sm">
+        <div style="font-size:10px; color:var(--text-muted)">MISS RATIO</div>
+        <div style="font-size:18px; font-weight:700; margin:4px 0; color:var(--yellow)">12.7%</div>
+        <div style="font-size:11px; color:var(--text-muted)">Threshold: &lt;10% · WARN</div>
+      </div>
+    </div>
+    <div class="alert-item alert-critical" style="margin-top:12px">
+      <i class="ti ti-alert-triangle" style="color:var(--red); font-size:16px; margin-top:2px"></i>
+      <div>
+        <div class="alert-title">Redis memory critical — evictions impacting session cache</div>
+        <div class="alert-desc">Eviction policy: allkeys-lru. Recommend: scale memory to 64 GB or enable cluster mode. Evictions are causing cache misses which load PostgreSQL. This is why DB connections are rising.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SECTION 5: KAFKA -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section" id="kafka">
+    <div class="section-header">
+      <i class="ti ti-messages" style="color:var(--purple)"></i>
+      <div class="section-title">Messaging — Kafka</div>
+      <span class="status-pill pill-green">HEALTHY</span>
+      <div class="section-sub">Are asynchronous systems healthy?</div>
+    </div>
+    <div class="grid-4" style="margin-bottom:14px">
+      <div class="metric-card">
+        <div class="metric-label">Availability</div>
+        <div class="metric-value" style="color:var(--green)">100%</div>
+        <div class="metric-sub">3/3 brokers online</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Topic Throughput</div>
+        <div class="metric-value">142K<span style="font-size:12px; color:var(--text-muted)">/s</span></div>
+        <div class="metric-sub">Normal · Peak: 280K/s</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Max Consumer Lag</div>
+        <div class="metric-value" style="color:var(--yellow)">18,400</div>
+        <div class="metric-sub">orders.created · Threshold: 10K</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">DLQ Messages</div>
+        <div class="metric-value" style="color:var(--yellow)">234</div>
+        <div class="metric-sub">Last 24h · Threshold: &lt;100</div>
+      </div>
+    </div>
+    <div class="card">
+      <table class="status-table">
+        <thead><tr><th>Topic</th><th>Throughput</th><th>Partitions</th><th>Consumer Group</th><th>Lag</th><th>Producer Failures</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td class="svc-name">orders.created</td><td>4,200/s</td><td>32</td><td>order-processor</td><td style="color:var(--yellow)">18,400</td><td>0</td><td><span class="status-pill pill-yellow">LAG</span></td></tr>
+          <tr><td class="svc-name">payments.events</td><td>800/s</td><td>16</td><td>payment-processor</td><td style="color:var(--yellow)">4,200</td><td>12</td><td><span class="status-pill pill-yellow">WARN</span></td></tr>
+          <tr><td class="svc-name">user.events</td><td>12,000/s</td><td>64</td><td>analytics-consumer</td><td>420</td><td>0</td><td><span class="status-pill pill-green">OK</span></td></tr>
+          <tr><td class="svc-name">notifications</td><td>2,100/s</td><td>8</td><td>notif-consumer</td><td>180</td><td>0</td><td><span class="status-pill pill-green">OK</span></td></tr>
+          <tr><td class="svc-name">inventory.updates</td><td>1,400/s</td><td>16</td><td>inventory-consumer</td><td>90</td><td>0</td><td><span class="status-pill pill-green">OK</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SECTION 6: EXTERNAL DEPENDENCIES -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section" id="external">
+    <div class="section-header">
+      <i class="ti ti-plug" style="color:var(--cyan)"></i>
+      <div class="section-title">External Dependency Health</div>
+      <span class="status-pill pill-red">1 CRITICAL</span>
+      <div class="section-sub">Are external vendors causing issues?</div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <table class="status-table">
+          <thead><tr><th>Service</th><th>Latency</th><th>Error Rate</th><th>Uptime (24h)</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td class="svc-name"><i class="ti ti-credit-card"></i> Stripe (Payment GW)</td><td style="color:var(--red)">1,840ms</td><td style="color:var(--red)">3.8%</td><td>98.4%</td><td><span class="status-pill pill-red">OUTAGE</span></td></tr>
+            <tr><td class="svc-name"><i class="ti ti-mail"></i> SendGrid (Email)</td><td>180ms</td><td>0.02%</td><td>99.98%</td><td><span class="status-pill pill-green">OK</span></td></tr>
+            <tr><td class="svc-name"><i class="ti ti-device-mobile"></i> Twilio (SMS)</td><td>210ms</td><td>0.04%</td><td>99.97%</td><td><span class="status-pill pill-green">OK</span></td></tr>
+            <tr><td class="svc-name"><i class="ti ti-map-pin"></i> Google Maps API</td><td>92ms</td><td>0.00%</td><td>100%</td><td><span class="status-pill pill-green">OK</span></td></tr>
+            <tr><td class="svc-name"><i class="ti ti-robot"></i> OpenAI API</td><td>440ms</td><td>0.12%</td><td>99.8%</td><td><span class="status-pill pill-green">OK</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="cdn" class="card">
+        <div style="font-size:12px; font-weight:600; margin-bottom:10px">CDN Health</div>
+        <table class="status-table">
+          <thead><tr><th>Region</th><th>Cache Hit %</th><th>Latency</th><th>Bandwidth</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>US-East</td><td>94.2%</td><td>8ms</td><td>12.4 Gbps</td><td><span class="status-pill pill-green">OK</span></td></tr>
+            <tr><td>EU-West</td><td>91.8%</td><td>14ms</td><td>8.2 Gbps</td><td><span class="status-pill pill-green">OK</span></td></tr>
+            <tr><td>APAC</td><td>88.4%</td><td>22ms</td><td>5.6 Gbps</td><td><span class="status-pill pill-yellow">WARN</span></td></tr>
+            <tr><td>SA</td><td>86.1%</td><td>31ms</td><td>1.8 Gbps</td><td><span class="status-pill pill-yellow">WARN</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="alert-item alert-critical" style="margin-top:12px">
+      <i class="ti ti-alert-triangle" style="color:var(--red); font-size:16px; margin-top:2px"></i>
+      <div>
+        <div class="alert-title">Stripe payment gateway experiencing degraded performance</div>
+        <div class="alert-desc">Latency 4x normal · Error rate elevated to 3.8% · This is the root cause of /checkout P99 spike and INC-1042. Stripe status page reports "Investigating" since 09:13 UTC. Recommend: enable circuit breaker, queue failed orders for retry.</div>
+      </div>
+      <div class="alert-time">47m active</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SECTION 7: SECURITY -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section" id="security">
+    <div class="section-header">
+      <i class="ti ti-shield-lock" style="color:var(--red)"></i>
+      <div class="section-title">Security &amp; Compliance</div>
+      <span class="status-pill pill-red">2 CRITICAL</span>
+      <div class="section-sub">Will security break before operations?</div>
+    </div>
+    <div class="grid-4" style="margin-bottom:14px">
+      <div class="metric-card">
+        <div class="metric-label">Failed Logins (1h)</div>
+        <div class="metric-value" style="color:var(--yellow)">1,842</div>
+        <div class="metric-sub">Threshold: &lt;500 · <span style="color:var(--red)">Spike</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Blocked IPs</div>
+        <div class="metric-value">284</div>
+        <div class="metric-sub">+42 new in last 1h</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">WAF Events (1h)</div>
+        <div class="metric-value" style="color:var(--yellow)">8,402</div>
+        <div class="metric-sub">94% auto-blocked</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Critical CVEs</div>
+        <div class="metric-value" style="color:var(--red)">3</div>
+        <div class="metric-sub"><span style="color:var(--red)">Unpatched in container images</span></div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <table class="status-table">
+          <thead><tr><th>Metric</th><th>Value</th><th>Threshold</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>Login spike detected</td><td>+268% vs baseline</td><td>&lt;50% spike</td><td><span class="status-pill pill-red">ALERT</span></td></tr>
+            <tr><td>SSL cert expiry</td><td>12 days</td><td>&gt;30 days</td><td><span class="status-pill pill-red">CRIT</span></td></tr>
+            <tr><td>IAM key rotation</td><td>3 stale (&gt;90d)</td><td>0 stale</td><td><span class="status-pill pill-red">CRIT</span></td></tr>
+            <tr><td>Secret rotation</td><td>All current</td><td>&lt;90 days</td><td><span class="status-pill pill-green">OK</span></td></tr>
+            <tr><td>Open vulnerabilities</td><td>12 (3 critical)</td><td>0 critical</td><td><span class="status-pill pill-red">CRIT</span></td></tr>
+            <tr><td>mTLS coverage</td><td>18/20 services</td><td>20/20</td><td><span class="status-pill pill-yellow">WARN</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px">Failed login attempts (24h) — possible credential stuffing</div>
+        <div class="chart-wrap" style="height:160px">
+          <canvas id="securityChart" role="img" aria-label="Failed login attempts over 24 hours showing spike"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SECTION 8: OPERATIONAL HYGIENE -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section" id="hygiene">
+    <div class="section-header">
+      <i class="ti ti-checklist" style="color:var(--green)"></i>
+      <div class="section-title">Operational Hygiene</div>
+      <span class="status-pill pill-red">4 ACTIONS NEEDED</span>
+      <div class="section-sub">The things that kill you slowly</div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="hygiene-item">
+          <div class="hygiene-icon" style="background:var(--red-bg)"><i class="ti ti-lock" style="color:var(--red)"></i></div>
+          <div>
+            <div class="hygiene-label">SSL Certificate Expiry</div>
+            <div class="hygiene-status">example.com · Auto-renewal FAILING</div>
+          </div>
+          <div class="hygiene-badge" style="background:var(--red-bg); color:var(--red)">12 days</div>
+        </div>
+        <div class="hygiene-item">
+          <div class="hygiene-icon" style="background:var(--yellow-bg)"><i class="ti ti-world" style="color:var(--yellow)"></i></div>
+          <div>
+            <div class="hygiene-label">Domain Expiry</div>
+            <div class="hygiene-status">example.com · Registrar: GoDaddy</div>
+          </div>
+          <div class="hygiene-badge" style="background:var(--yellow-bg); color:var(--yellow)">45 days</div>
+        </div>
+        <div class="hygiene-item">
+          <div class="hygiene-icon" style="background:var(--green-bg)"><i class="ti ti-database" style="color:var(--green)"></i></div>
+          <div>
+            <div class="hygiene-label">Backup Status</div>
+            <div class="hygiene-status">Last backup: 4.2h ago · Success</div>
+          </div>
+          <div class="hygiene-badge" style="background:var(--green-bg); color:var(--green)">OK</div>
+        </div>
+        <div class="hygiene-item">
+          <div class="hygiene-icon" style="background:var(--red-bg)"><i class="ti ti-restore" style="color:var(--red)"></i></div>
+          <div>
+            <div class="hygiene-label">Backup Restore Verification</div>
+            <div class="hygiene-status">Last restore test was 90 days ago</div>
+          </div>
+          <div class="hygiene-badge" style="background:var(--red-bg); color:var(--red)">OVERDUE</div>
+        </div>
+        <div class="hygiene-item">
+          <div class="hygiene-icon" style="background:var(--green-bg)"><i class="ti ti-network" style="color:var(--green)"></i></div>
+          <div>
+            <div class="hygiene-label">DNS Health</div>
+            <div class="hygiene-status">All records resolving correctly</div>
+          </div>
+          <div class="hygiene-badge" style="background:var(--green-bg); color:var(--green)">OK</div>
+        </div>
+        <div class="hygiene-item" style="border-bottom:none">
+          <div class="hygiene-icon" style="background:var(--yellow-bg)"><i class="ti ti-clock" style="color:var(--yellow)"></i></div>
+          <div>
+            <div class="hygiene-label">NTP Synchronization</div>
+            <div class="hygiene-status">2 nodes showing 48ms drift</div>
+          </div>
+          <div class="hygiene-badge" style="background:var(--yellow-bg); color:var(--yellow)">DRIFT</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="hygiene-item">
+          <div class="hygiene-icon" style="background:var(--red-bg)"><i class="ti ti-chart-line" style="color:var(--red)"></i></div>
+          <div>
+            <div class="hygiene-label">Disk Forecast</div>
+            <div class="hygiene-status">Primary DB · Current: 87% · +4.2 GB/day</div>
+          </div>
+          <div class="hygiene-badge" style="background:var(--red-bg); color:var(--red)">Full in 9d</div>
+        </div>
+        <div class="hygiene-item">
+          <div class="hygiene-icon" style="background:var(--red-bg)"><i class="ti ti-key" style="color:var(--red)"></i></div>
+          <div>
+            <div class="hygiene-label">IP Whitelist / Vendor VPN</div>
+            <div class="hygiene-status">Support vendor VPN access</div>
+          </div>
+          <div class="hygiene-badge" style="background:var(--red-bg); color:var(--red)">5 days</div>
+        </div>
+        <div class="hygiene-item">
+          <div class="hygiene-icon" style="background:var(--red-bg)"><i class="ti ti-box-multiple" style="color:var(--red)"></i></div>
+          <div>
+            <div class="hygiene-label">Kubernetes Version</div>
+            <div class="hygiene-status">Running v1.26 — EOL, unsupported</div>
+          </div>
+          <div class="hygiene-badge" style="background:var(--red-bg); color:var(--red)">UPGRADE</div>
+        </div>
+        <div class="hygiene-item">
+          <div class="hygiene-icon" style="background:var(--red-bg)"><i class="ti ti-shield" style="color:var(--red)"></i></div>
+          <div>
+            <div class="hygiene-label">OS Patch Status</div>
+            <div class="hygiene-status">4 nodes with critical security updates pending</div>
+          </div>
+          <div class="hygiene-badge" style="background:var(--red-bg); color:var(--red)">CRITICAL</div>
+        </div>
+        <div class="hygiene-item">
+          <div class="hygiene-icon" style="background:var(--red-bg)"><i class="ti ti-id" style="color:var(--red)"></i></div>
+          <div>
+            <div class="hygiene-label">IAM Key Rotation</div>
+            <div class="hygiene-status">3 service account keys not rotated in 90+ days</div>
+          </div>
+          <div class="hygiene-badge" style="background:var(--red-bg); color:var(--red)">OVERDUE</div>
+        </div>
+        <div class="hygiene-item" style="border-bottom:none">
+          <div class="hygiene-icon" style="background:var(--green-bg)"><i class="ti ti-shield-check" style="color:var(--green)"></i></div>
+          <div>
+            <div class="hygiene-label">Secret Rotation</div>
+            <div class="hygiene-status">All API secrets rotated within 90 days</div>
+          </div>
+          <div class="hygiene-badge" style="background:var(--green-bg); color:var(--green)">OK</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SECTION 9: COST -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section" id="cost">
+    <div class="section-header">
+      <i class="ti ti-coin" style="color:var(--yellow)"></i>
+      <div class="section-title">Cost Monitoring</div>
+      <span class="status-pill pill-yellow">OVER BUDGET</span>
+      <div class="section-sub">Which service is wasting money?</div>
+    </div>
+    <div class="grid-4" style="margin-bottom:14px">
+      <div class="metric-card">
+        <div class="metric-label">Today's Cost</div>
+        <div class="metric-value">$4,820</div>
+        <div class="metric-sub"><span style="color:var(--red)">+22% vs avg day</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Monthly Cost (MTD)</div>
+        <div class="metric-value">$98,400</div>
+        <div class="metric-sub">Budget: $84K · <span style="color:var(--red)">+17%</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Projected Month</div>
+        <div class="metric-value" style="color:var(--red)">$118K</div>
+        <div class="metric-sub"><span style="color:var(--red)">+40% over $84K budget</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Idle Resources</div>
+        <div class="metric-value" style="color:var(--yellow)">$1,240</div>
+        <div class="metric-sub">Wasted/day · 8 idle instances</div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px">Daily cloud cost — 30d trend (USD)</div>
+        <div class="chart-wrap" style="height:160px">
+          <canvas id="costChart" role="img" aria-label="Daily cloud cost trend over 30 days"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px">Cost by service</div>
+        <div class="chart-wrap" style="height:160px">
+          <canvas id="costByServiceChart" role="img" aria-label="Cloud cost breakdown by service"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <table class="status-table">
+        <thead><tr><th>Team / Service</th><th>MTD Cost</th><th>Budget</th><th>Variance</th><th>Idle $</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td class="svc-name">Compute (EC2/GKE)</td><td>$41,200</td><td>$32,000</td><td style="color:var(--red)">+29%</td><td>$820</td><td><span class="status-pill pill-red">OVER</span></td></tr>
+          <tr><td class="svc-name">Database (RDS)</td><td>$18,400</td><td>$16,000</td><td style="color:var(--yellow)">+15%</td><td>$0</td><td><span class="status-pill pill-yellow">WARN</span></td></tr>
+          <tr><td class="svc-name">Storage (S3/GCS)</td><td>$12,800</td><td>$12,000</td><td style="color:var(--yellow)">+7%</td><td>$220</td><td><span class="status-pill pill-yellow">WARN</span></td></tr>
+          <tr><td class="svc-name">Network / CDN</td><td>$9,600</td><td>$10,000</td><td style="color:var(--green)">-4%</td><td>$0</td><td><span class="status-pill pill-green">OK</span></td></tr>
+          <tr><td class="svc-name">Data / Analytics</td><td>$8,200</td><td>$7,000</td><td style="color:var(--yellow)">+17%</td><td>$200</td><td><span class="status-pill pill-yellow">WARN</span></td></tr>
+          <tr><td class="svc-name">Monitoring / Logging</td><td>$8,200</td><td>$7,000</td><td style="color:var(--yellow)">+17%</td><td>$0</td><td><span class="status-pill pill-yellow">WARN</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SECTION 10: RELIABILITY -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section" id="reliability">
+    <div class="section-header">
+      <i class="ti ti-chart-line" style="color:var(--cyan)"></i>
+      <div class="section-title">Reliability &amp; SLO Tracking</div>
+      <span class="status-pill pill-yellow">SLO AT RISK</span>
+      <div class="section-sub">Are we getting more reliable?</div>
+    </div>
+    <div class="grid-4" style="margin-bottom:14px">
+      <div class="metric-card">
+        <div class="metric-label">SLO Achievement (30d)</div>
+        <div class="metric-value" style="color:var(--yellow)">99.36%</div>
+        <div class="metric-sub">Target: 99.5% · <span style="color:var(--red)">Below</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Error Budget Remaining</div>
+        <div class="metric-value" style="color:var(--red)">14%</div>
+        <div class="progress-bar"><div class="progress-fill fill-red" style="width:14%"></div></div>
+        <div class="metric-sub"><span style="color:var(--red)">86% consumed this month</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">MTTR (30d avg)</div>
+        <div class="metric-value">24<span style="font-size:13px; color:var(--text-muted)">min</span></div>
+        <div class="metric-sub">Target: &lt;30min · <span style="color:var(--green)">OK</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">MTTD (30d avg)</div>
+        <div class="metric-value" style="color:var(--yellow)">8<span style="font-size:13px; color:var(--text-muted)">min</span></div>
+        <div class="metric-sub">Target: &lt;5min · <span style="color:var(--yellow)">Needs work</span></div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px">Monthly availability % (12 months)</div>
+        <div class="chart-wrap" style="height:160px">
+          <canvas id="availabilityChart" role="img" aria-label="Monthly availability percentage over 12 months"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <table class="status-table">
+          <thead><tr><th>Metric</th><th>Value</th><th>Target</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>Availability (30d)</td><td>99.94%</td><td>99.9%</td><td><span class="status-pill pill-green">OK</span></td></tr>
+            <tr><td>SLA Compliance</td><td>99.36%</td><td>99.5%</td><td><span class="status-pill pill-red">BREACH</span></td></tr>
+            <tr><td>Error Budget</td><td>14% left</td><td>&gt;20%</td><td><span class="status-pill pill-red">LOW</span></td></tr>
+            <tr><td>Incidents (30d)</td><td>8</td><td>&lt;5</td><td><span class="status-pill pill-yellow">WARN</span></td></tr>
+            <tr><td>P1 Incidents (30d)</td><td>2</td><td>0</td><td><span class="status-pill pill-red">CRIT</span></td></tr>
+            <tr><td>MTTR</td><td>24 min</td><td>&lt;30 min</td><td><span class="status-pill pill-green">OK</span></td></tr>
+            <tr><td>MTTD</td><td>8 min</td><td>&lt;5 min</td><td><span class="status-pill pill-yellow">MISS</span></td></tr>
+            <tr><td>Change Failure Rate</td><td>4.2%</td><td>&lt;5%</td><td><span class="status-pill pill-green">OK</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SECTION: AI OPS ASSISTANT -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section" id="ai-ops">
+    <div class="section-header">
+      <i class="ti ti-robot" style="color:var(--purple)"></i>
+      <div class="section-title">AI Operations Assistant</div>
+      <span class="status-pill pill-blue">BETA</span>
+      <div class="section-sub">Ask anything about your production systems</div>
+    </div>
+    <div class="ai-chat">
+      <div class="ai-chat-header">
+        <div style="width:28px; height:28px; border-radius:50%; background:var(--purple-bg); display:flex; align-items:center; justify-content:center">
+          <i class="ti ti-robot" style="color:var(--purple); font-size:14px"></i>
+        </div>
+        <div>
+          <div style="font-size:12.5px; font-weight:600">SRE Assistant</div>
+          <div style="font-size:11px; color:var(--green)">● Online · Aware of current system state</div>
+        </div>
+      </div>
+      <div class="ai-messages" id="ai-messages">
+        <div class="ai-msg">
+          <div class="ai-bubble bubble-ai">
+            👋 I'm your SRE Assistant. I have full context of your production system right now.<br><br>
+            <strong>Active issues I see:</strong><br>
+            🔴 <strong>INC-1042</strong>: Stripe degraded → checkout P99 at 2,100ms<br>
+            🟡 <strong>Redis</strong>: Memory at 89%, evictions causing DB connection growth<br>
+            🔴 <strong>SSL cert</strong>: Expires in 12 days, auto-renewal failing<br><br>
+            Try asking: <em>"Why is checkout failing?"</em> or <em>"What will break this week?"</em>
+          </div>
+        </div>
+      </div>
+      <div class="ai-input-row">
+        <input type="text" class="ai-input" id="ai-input" placeholder="Ask about your production systems..." onkeydown="if(event.key==='Enter') sendAI()"/>
+        <button class="ai-send" onclick="sendAI()"><i class="ti ti-send"></i> Ask</button>
+      </div>
+    </div>
+    <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap">
+      <button class="btn-sm" onclick="quickAsk('Why is checkout failing?')">Why is checkout failing?</button>
+      <button class="btn-sm" onclick="quickAsk('What will break in the next 48 hours?')">What breaks in 48h?</button>
+      <button class="btn-sm" onclick="quickAsk('Root cause of P99 spike?')">P99 spike root cause?</button>
+      <button class="btn-sm" onclick="quickAsk('Which services are at risk right now?')">Services at risk?</button>
+      <button class="btn-sm" onclick="quickAsk('Is the database healthy?')">DB health check</button>
+    </div>
+  </div>
+
+  <!-- footer -->
+  <div style="text-align:center; padding: 20px 0; color:var(--text-dim); font-size:11px; border-top:1px solid var(--border); margin-top:10px">
+    Production Operations Command Center · 100K DAU · 20 Microservices · Kubernetes
+  </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+// ══════════════════════════════════════════════
+// CLOCK
+// ══════════════════════════════════════════════
+function updateClock() {
+  const now = new Date();
+  const hh = String(now.getUTCHours()).padStart(2,'0');
+  const mm = String(now.getUTCMinutes()).padStart(2,'0');
+  const ss = String(now.getUTCSeconds()).padStart(2,'0');
+  document.getElementById('clock').textContent = hh+':'+mm+':'+ss+' UTC';
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ══════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════
+function scrollTo(id) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const el = document.getElementById(id);
+  if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// ══════════════════════════════════════════════
+// REFRESH ANIMATION
+// ══════════════════════════════════════════════
+function refreshAll() {
+  const icon = document.getElementById('refresh-icon');
+  icon.classList.add('spinning');
+  setTimeout(() => icon.classList.remove('spinning'), 1200);
+}
+
+// ══════════════════════════════════════════════
+// SERVICES TABLE
+// ══════════════════════════════════════════════
+const services = [
+  {name:'api-gateway', rps:4812, p99:88, err:0.12, pods:'8/8', deps:0, health:'OK'},
+  {name:'auth-service', rps:4200, p99:42, err:0.04, pods:'8/8', deps:0, health:'OK'},
+  {name:'user-service', rps:1840, p99:68, err:0.08, pods:'6/6', deps:0, health:'OK'},
+  {name:'order-service', rps:680, p99:180, err:0.21, pods:'16/16', deps:1, health:'WARN'},
+  {name:'payment-service', rps:142, p99:2100, err:4.2, pods:'12/12', deps:1, health:'CRIT'},
+  {name:'checkout-service', rps:142, p99:1800, err:3.8, pods:'8/8', deps:2, health:'CRIT'},
+  {name:'inventory-service', rps:420, p99:58, err:0.02, pods:'10/10', deps:0, health:'OK'},
+  {name:'search-service', rps:380, p99:820, err:0.8, pods:'12/12', deps:0, health:'WARN'},
+  {name:'recommendation-svc', rps:210, p99:680, err:0.1, pods:'6/6', deps:0, health:'WARN'},
+  {name:'notification-service', rps:2100, p99:92, err:0.06, pods:'6/8', deps:0, health:'WARN'},
+  {name:'email-service', rps:800, p99:210, err:0.08, pods:'4/4', deps:0, health:'OK'},
+  {name:'analytics-service', rps:1200, p99:140, err:0.1, pods:'14/14', deps:0, health:'OK'},
+  {name:'report-service', rps:180, p99:380, err:0.2, pods:'4/4', deps:0, health:'OK'},
+  {name:'cdn-service', rps:28000, p99:8, err:0.01, pods:'N/A', deps:0, health:'OK'},
+  {name:'image-service', rps:4200, p99:48, err:0.03, pods:'6/6', deps:0, health:'OK'},
+  {name:'shipping-service', rps:280, p99:120, err:0.15, pods:'4/4', deps:0, health:'OK'},
+  {name:'pricing-service', rps:1400, p99:32, err:0.02, pods:'4/4', deps:0, health:'OK'},
+  {name:'review-service', rps:240, p99:88, err:0.08, pods:'4/4', deps:0, health:'OK'},
+  {name:'cart-service', rps:920, p99:44, err:0.06, pods:'6/6', deps:0, health:'OK'},
+  {name:'admin-service', rps:180, p99:210, err:0.12, pods:'2/2', deps:0, health:'OK'},
+];
+
+const tbody = document.getElementById('services-tbody');
+services.forEach(s => {
+  const healthClass = s.health==='OK'?'pill-green':s.health==='WARN'?'pill-yellow':'pill-red';
+  const p99color = s.p99>500?'color:var(--red)':s.p99>200?'color:var(--yellow)':'';
+  const errcolor = s.err>1?'color:var(--red)':s.err>0.3?'color:var(--yellow)':'';
+  const depscolor = s.deps>0?`color:var(--${s.deps>1?'red':'yellow'})`:'' ;
+  tbody.innerHTML += `<tr>
+    <td class="svc-name">${s.name}</td>
+    <td>${s.rps.toLocaleString()}</td>
+    <td style="${p99color}">${s.p99}ms</td>
+    <td style="${errcolor}">${s.err}%</td>
+    <td>${s.pods}</td>
+    <td style="${depscolor}">${s.deps===0?'—':s.deps+' failure(s)'}</td>
+    <td><span class="status-pill ${healthClass}">${s.health}</span></td>
+  </tr>`;
+});
+
+// ══════════════════════════════════════════════
+// CHART.JS DEFAULTS
+// ══════════════════════════════════════════════
+Chart.defaults.color = '#7d8590';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.07)';
+Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+Chart.defaults.font.size = 11;
+
+const hours24 = Array.from({length:25},(_,i)=>i===0?'00:00':`${String(i).padStart(2,'0')}:00`);
+const hours12 = Array.from({length:13},(_,i)=>i===0?'-12h':`-${12-i}h`);
+
+function makeChart(id, type, labels, datasets, opts={}) {
+  const ctx = document.getElementById(id);
+  if(!ctx) return;
+  return new Chart(ctx, {
+    type, data:{labels, datasets},
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, ...opts}
+  });
+}
+
+// CPU Chart
+makeChart('cpuChart','line',hours24,[
+  {label:'api-pool', data:Array.from({length:25},()=>60+Math.random()*20), borderColor:'#58a6ff', borderWidth:2, pointRadius:0, fill:false},
+  {label:'db-pool', data:Array.from({length:25},()=>55+Math.random()*25), borderColor:'#e3b341', borderWidth:2, pointRadius:0, fill:false},
+  {label:'cache-pool', data:Array.from({length:25},()=>25+Math.random()*15), borderColor:'#3fb950', borderWidth:2, pointRadius:0, fill:false},
+],{plugins:{legend:{display:true, position:'bottom'}}, scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%'}}}});
+
+// Latency Chart
+makeChart('latencyChart','line',hours24,[
+  {label:'P50', data:Array.from({length:25},()=>42+Math.random()*15), borderColor:'#3fb950', borderWidth:2, pointRadius:0, fill:false},
+  {label:'P95', data:Array.from({length:25},()=>160+Math.random()*50), borderColor:'#e3b341', borderWidth:2, pointRadius:0, fill:false},
+  {label:'P99', data:Array.from({length:25},()=>280+Math.random()*80), borderColor:'#f85149', borderWidth:2, pointRadius:0, fill:false},
+],{plugins:{legend:{display:true,position:'bottom'}}, scales:{y:{min:0,ticks:{callback:v=>v+'ms'}}}});
+
+// HTTP Status Chart
+makeChart('httpStatusChart','bar',['2xx','4xx','5xx'],[
+  {data:[97.8,1.38,0.84], backgroundColor:['#3fb950','#e3b341','#f85149']}
+],{scales:{y:{max:100,ticks:{callback:v=>v+'%'}}}});
+
+// DB Connections Chart
+makeChart('dbChart','line',hours24,[
+  {label:'Connections', data:Array.from({length:25},(_,i)=>280+i*8+Math.random()*20), borderColor:'#e3b341', borderWidth:2, pointRadius:0, fill:true, backgroundColor:'rgba(227,179,65,0.08)'},
+],{scales:{y:{min:200,max:500, ticks:{stepSize:50}}}});
+
+// DB Connections Trend (small)
+makeChart('dbConnTrendChart','line',hours12,[
+  {label:'Connections', data:Array.from({length:13},(_,i)=>360+i*6+Math.random()*15), borderColor:'#e3b341', borderWidth:1.5, pointRadius:0, fill:true, backgroundColor:'rgba(227,179,65,0.08)'},
+],{scales:{y:{min:340, max:500}}});
+
+// Disk Forecast Chart
+const diskBase = Array.from({length:10},(_,i)=>Math.round(74+i*1.4));
+const diskForecast = Array.from({length:20},(_,i)=>null);
+const diskFull = Array.from({length:30},(_,i)=>i<10?null:Math.round(88+i*1.4));
+makeChart('diskForecastChart','line',
+  Array.from({length:30},(_,i)=>i<=9?`-${9-i}d`:i===9?'Today':`+${i-9}d`),
+  [
+    {label:'Actual', data:[...diskBase,...Array(20).fill(null)], borderColor:'#58a6ff', borderWidth:2, pointRadius:0, fill:false},
+    {label:'Projected', data:[...Array(9).fill(null),88,...Array.from({length:20},(_,i)=>Math.round(88+(i+1)*1.4))], borderColor:'#f85149', borderWidth:2, borderDash:[4,3], pointRadius:0, fill:false},
+    {label:'100% line', data:Array(30).fill(100), borderColor:'rgba(248,81,73,0.3)', borderWidth:1, borderDash:[2,2], pointRadius:0, fill:false},
+  ],
+  {scales:{y:{min:60,max:105,ticks:{callback:v=>v+'%'}}},plugins:{legend:{display:true,position:'bottom'}}}
+);
+
+// Security Chart
+const secData = Array.from({length:24},(_,i)=>i<16?80+Math.random()*60:i<18?400+Math.random()*200:1600+Math.random()*500);
+makeChart('securityChart','bar',hours24.slice(0,24),[
+  {data:secData, backgroundColor:secData.map(v=>v>500?'rgba(248,81,73,0.7)':v>200?'rgba(210,153,34,0.7)':'rgba(88,166,255,0.5)')},
+],{scales:{y:{ticks:{stepSize:400}}}});
+
+// Cost Chart
+makeChart('costChart','line',
+  Array.from({length:30},(_,i)=>`D${i+1}`),
+  [{label:'Daily Cost', data:Array.from({length:30},(_,i)=>2800+i*60+Math.random()*400), borderColor:'#3fb950', borderWidth:2, pointRadius:0, fill:true, backgroundColor:'rgba(63,185,80,0.07)'}],
+  {scales:{y:{ticks:{callback:v=>'$'+Math.round(v/1000)+'K'}}}}
+);
+
+// Cost by service
+makeChart('costByServiceChart','doughnut',
+  ['Compute','Database','Storage','Network','Analytics','Monitoring'],
+  [{data:[41200,18400,12800,9600,8200,8200], backgroundColor:['#58a6ff','#e3b341','#3fb950','#bc8cff','#39d0d8','#f85149']}],
+  {plugins:{legend:{display:true,position:'right',labels:{boxWidth:10,padding:8,font:{size:11}}}}}
+);
+
+// Availability Chart
+makeChart('availabilityChart','bar',
+  ['Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun'],
+  [{data:[99.98,99.95,99.99,99.97,99.96,99.91,99.99,99.94,99.88,99.97,99.92,99.94], backgroundColor:function(ctx){const v=ctx.raw;return v>=99.95?'rgba(63,185,80,0.7)':v>=99.9?'rgba(227,179,65,0.7)':'rgba(248,81,73,0.7)';}}],
+  {scales:{y:{min:99.8,max:100,ticks:{callback:v=>v+'%'}}},plugins:{legend:{display:false}}}
+);
+
+// ══════════════════════════════════════════════
+// AI CHAT
+// ══════════════════════════════════════════════
+const AI_RESPONSES = {
+  'checkout': {
+    q:'Why is checkout failing?',
+    a:`<strong>Root cause identified.</strong><br><br>
+      <strong>Observed:</strong><br>
+      — /api/v2/checkout P99 latency: 2,100ms (baseline: 220ms)<br>
+      — Error rate: 4.2% (baseline: 0.1%)<br>
+      — Payment service dependency timeout<br><br>
+      <strong>Likely cause:</strong><br>
+      Stripe payment gateway outage (INC-1042) — their latency is 1,840ms vs normal 210ms, error rate 3.8%.<br><br>
+      <strong>Recommendations:</strong><br>
+      1. Enable circuit breaker on payment service (timeout: 2s)<br>
+      2. Queue failed orders for retry with exponential backoff<br>
+      3. Surface maintenance banner to users during checkout<br>
+      4. ETA from Stripe status page: unknown — monitor @stripe.com/status`
+  },
+  '48h': {
+    q:'What will break in the next 48 hours?',
+    a:`<strong>Top risks in next 48 hours:</strong><br><br>
+      🔴 <strong>DB disk full in ~9 days</strong> — but at +4.2GB/day, disk will hit 95% in ~3 days. Add storage now.<br>
+      🔴 <strong>DB connections will hit max</strong> — currently 430/500, trending +8/hr. Will hit 500 in ~8h if Redis evictions continue.<br>
+      🟡 <strong>Vendor VPN expires in 5 days</strong> — support access cut off without renewal.<br>
+      🟡 <strong>Kafka orders.created lag at 18,400</strong> — if consumer falls further behind, order processing will delay by 30+ min.<br>
+      🟡 <strong>Redis memory at 89%</strong> — evictions will cascade into DB load. Could trigger OOM if traffic spikes.`
+  },
+  'p99': {
+    q:'Root cause of P99 spike?',
+    a:`<strong>P99 spike analysis:</strong><br><br>
+      P99 is 312ms overall (SLO breach at 300ms).<br><br>
+      <strong>Causal chain:</strong><br>
+      1. Stripe latency increased 4x → 1,840ms<br>
+      2. Payment service sync calls to Stripe timeout at 2,000ms<br>
+      3. Checkout service waits for payment service → P99 pulled to 2,100ms<br>
+      4. API gateway aggregates → overall P99 rises to 312ms<br><br>
+      <strong>Secondary factor:</strong><br>
+      Redis evictions causing cache misses → DB queries replacing cache hits → DB P99 at 420ms vs 80ms baseline. This affects /search and /recommendations endpoints too.`
+  },
+  'risk': {
+    q:'Which services are at risk right now?',
+    a:`<strong>Services at risk (ranked by severity):</strong><br><br>
+      🔴 <strong>payment-service</strong> — 4.2% error rate, P99 2,100ms, dep failure on Stripe<br>
+      🔴 <strong>checkout-service</strong> — 3.8% error rate, downstream of payment<br>
+      🟡 <strong>order-service</strong> — dep failure on payment-service, lag building in Kafka<br>
+      🟡 <strong>search-service</strong> — P99 820ms, Redis evictions causing miss ratio spike<br>
+      🟡 <strong>notification-service</strong> — 2 pods pending (node capacity), risk of backlog`
+  },
+  'db': {
+    q:'Is the database healthy?',
+    a:`<strong>PostgreSQL health assessment:</strong><br><br>
+      ✅ Availability: 100% (primary + 2 replicas)<br>
+      ✅ Replication lag: 0.8s (threshold: 5s)<br>
+      ✅ Last backup: 4.2h ago<br>
+      ⚠️ Connections: 430/500 (86%) — trending upward<br>
+      ⚠️ Slow queries: 12/hr (threshold: 10/hr) — caused by Redis miss ratio<br>
+      🔴 Storage: 1.74 TB / 2 TB — <strong>will be full in ~9 days</strong><br>
+      🔴 Restore test: 90 days ago — overdue (SLA requires monthly)<br><br>
+      <strong>Immediate action needed:</strong> Add 1 TB storage, run restore test, enable connection pooling (PgBouncer) to handle connection growth.`
+  }
+};
+
+function appendMsg(html, isUser) {
+  const msgs = document.getElementById('ai-messages');
+  const div = document.createElement('div');
+  div.className = 'ai-msg' + (isUser?' ai-msg-user':'');
+  div.innerHTML = `<div class="ai-bubble ${isUser?'bubble-user':'bubble-ai'}">${html}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function sendAI() {
+  const input = document.getElementById('ai-input');
+  const q = input.value.trim();
+  if(!q) return;
+  appendMsg(q, true);
+  input.value = '';
+
+  const msgs = document.getElementById('ai-messages');
+  const typing = document.createElement('div');
+  typing.className = 'ai-typing';
+  typing.textContent = 'Analyzing system metrics...';
+  msgs.appendChild(typing);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  setTimeout(() => {
+    typing.remove();
+    let answer = '';
+    const ql = q.toLowerCase();
+    if(ql.includes('checkout') || ql.includes('payment') || ql.includes('failing') || ql.includes('fail'))
+      answer = AI_RESPONSES.checkout.a;
+    else if(ql.includes('48') || ql.includes('break') || ql.includes('risk') && ql.includes('next'))
+      answer = AI_RESPONSES['48h'].a;
+    else if(ql.includes('p99') || ql.includes('latency') || ql.includes('spike'))
+      answer = AI_RESPONSES.p99.a;
+    else if(ql.includes('risk') || ql.includes('service'))
+      answer = AI_RESPONSES.risk.a;
+    else if(ql.includes('db') || ql.includes('database') || ql.includes('postgres'))
+      answer = AI_RESPONSES.db.a;
+    else
+      answer = `I analyzed your question: <em>"${q}"</em><br><br>Based on current system state, the most pressing issues are:<br>1. Stripe gateway degraded (INC-1042) — causing checkout failures<br>2. Redis at 89% memory — evictions cascading into DB load<br>3. SSL cert expires in 12 days — auto-renewal failing<br><br>Try a more specific question for deeper analysis.`;
+
+    appendMsg(answer, false);
+  }, 1200);
+}
+
+function quickAsk(q) {
+  document.getElementById('ai-input').value = q;
+  sendAI();
+  document.getElementById('ai-ops').scrollIntoView({behavior:'smooth'});
+}
+</script>
+</body>
+</html>
